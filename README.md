@@ -1,6 +1,6 @@
-### Chat Bot with Bedrock Claude
+# Chat Bot with Bedrock Claude
 
-### Getting Started
+## Getting Started
 
 Run the following command:
 
@@ -8,15 +8,16 @@ Run the following command:
 streamlit run app.py
 ```
 
-### How to Use
+## How to Use
 
-This sample has two cases:
+This sample has three cases:
 
-* Translate English from Japanese
-* Translate Japanese from English
+* Chatbot
+* Translate
+* Review
 
 Please switch between these modes using the side bar menu.
 
-### Caution
+## Caution
 
 This sample refers to local credentials. I recommend using an IAM (Identity and Access Management) Role created for this application.
