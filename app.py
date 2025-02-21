@@ -14,8 +14,11 @@ dict_lang = {
 def generate_prompt(prompt, in_la, out_la):
     return f'<text>の{dict_lang[in_la]}を{dict_lang[out_la]}に変換してください。出力は変換後の文章もしくは単語のみすること。\n <text> {prompt} </text>'
 
-def generate_review_prompt(senario, prompt):
-    return f'<senario>を踏まえて、<text>を添削して、正しい文章を英語で出力してください。その際、修正点を日本語で解説してください。\n <senario> {senario} </senario> \n <text> {prompt} </text>'
+def generate_review_prompt(prompt, senario=None):
+    if senario:
+        return f'<senario>を踏まえて、<text>を添削して、正しい文章を英語で出力してください。その際、修正点を日本語で解説してください。\n <senario> {senario} </senario> \n <text> {prompt} </text>'
+    else:
+        return f'<text>を添削して、正しい文章を英語で出力してください。その際、修正点を日本語で解説してください。\n <text> {prompt} </text>'
 
 
 def initialize_session():
@@ -107,6 +110,7 @@ def new_translation():
     
     if prompt: 
         text = ''
+        print(generate_prompt(prompt, in_la, out_la))
         stream = open_bedrock_stream(generate_prompt(prompt, in_la, out_la))
 
         if stream:
@@ -125,14 +129,15 @@ def new_translation():
 
 def review():
     senario = st.text_area('senario', placeholder='senario', height=200 ,max_chars=5000,)
-    input_text = st.text_area('text', placeholder='senario', height=400 ,max_chars=5000,)
+    input_text = st.text_area('text', placeholder='text', height=400 ,max_chars=5000,)
 
     message_placeholder = st.empty()
     message_placeholder.markdown('出力表示されるよ')
 
 
-    if senario and input_text: 
+    if input_text: 
         text = ''
+        print(generate_review_prompt(senario, input_text))
         stream = open_bedrock_stream(generate_review_prompt(senario, input_text))
         
         if stream:
