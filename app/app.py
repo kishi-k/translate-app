@@ -3,8 +3,10 @@ import boto3
 import json
 
 
-session = boto3.Session(profile_name='defalut')
-bedrock = session.client(service_name='bedrock-runtime')
+# create bedrock client
+bedrock = boto3.client(service_name='bedrock-runtime')
+# session = boto3.Session(profile_name='defalut')
+# bedrock = session.client(service_name='bedrock-runtime')
 
 dict_lang = {
     'en': '英語',
