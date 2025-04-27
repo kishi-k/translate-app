@@ -47,6 +47,14 @@ cdk bootstrap
 
 ### 4. Deploy the Application
 
+You can deploy the application with AWS credentials as parameters:
+
+```bash
+cdk deploy --context aws-access-key-id=YOUR_ACCESS_KEY_ID --context aws-secret-access-key=YOUR_SECRET_ACCESS_KEY
+```
+
+Alternatively, if you prefer not to pass credentials on the command line, you can omit them and you'll be prompted during deployment:
+
 ```bash
 cdk deploy
 ```
@@ -55,6 +63,7 @@ This command will:
 - Build a Docker image from your Streamlit application
 - Push the image to Amazon ECR
 - Create all necessary AWS resources (VPC, ECS Cluster, Fargate Service, etc.)
+- Create a secret in AWS Secrets Manager to store the AWS credentials
 - Deploy the application
 
 After deployment completes, the CDK will output the URL of your Streamlit application.
@@ -71,7 +80,13 @@ StreamlitAppUrl: http://your-load-balancer-url:8015
 
 The application uses AWS Bedrock for AI capabilities. The CDK stack sets up the necessary IAM permissions and VPC endpoints for secure access to Bedrock.
 
-By default, the application uses the AWS profile named 'default' for Bedrock access. If you need to use a different profile, update the `session = boto3.Session(profile_name='defalut')` line in `app/app.py`.
+The application now uses environment variables for AWS credentials, which are securely stored in AWS Secrets Manager. During deployment, you can provide these credentials as parameters to the CDK command. The credentials are then:
+
+1. Stored securely in AWS Secrets Manager
+2. Made available to the container as environment variables
+3. Used by the application to authenticate with AWS Bedrock
+
+This approach is more secure than hardcoding credentials or using profile files, which aren't available in container environments.
 
 ## Auto-scaling Configuration
 
@@ -99,6 +114,12 @@ The application is configured to auto-scale based on CPU utilization:
    - Check that the VPC endpoint for Bedrock is properly configured
    - Ensure the region you're deploying to supports Bedrock
 
+4. **Secrets Manager Issues**:
+   - If the application can't access credentials, check the ECS task execution role has proper permissions
+   - Verify the secret exists in AWS Secrets Manager with the correct name (transrate-app/aws-credentials)
+   - Check the secret contains the correct keys (AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY)
+   - Ensure the credentials stored in the secret have the necessary permissions for Bedrock
+
 ### Viewing Logs
 
 You can view application logs in CloudWatch:
@@ -117,6 +138,33 @@ To avoid incurring charges, delete the resources when no longer needed:
 cd cdk
 cdk destroy
 ```
+
+## AWS Secrets Manager
+
+This application uses AWS Secrets Manager to securely store and manage AWS credentials. Here's how it works:
+
+1. **During Deployment**: 
+   - AWS credentials are provided as parameters to the CDK command
+   - These credentials are stored in AWS Secrets Manager
+   - The secret ARN is output after deployment for reference
+
+2. **Runtime Access**:
+   - The ECS task has IAM permissions to access only the specific secret
+   - Credentials are injected as environment variables into the container
+   - The application uses these environment variables to authenticate with AWS services
+
+3. **Managing Secrets**:
+   - You can update the secret values in AWS Secrets Manager console if needed
+   - You can also update them using the AWS CLI:
+     ```bash
+     aws secretsmanager update-secret --secret-id [SECRET_ARN] --secret-string '{"AWS_ACCESS_KEY_ID":"YOUR_NEW_KEY","AWS_SECRET_ACCESS_KEY":"YOUR_NEW_SECRET"}'
+     ```
+
+This approach follows security best practices by:
+- Not hardcoding credentials in application code
+- Limiting access to secrets with IAM policies
+- Centralizing credential management
+- Enabling credential rotation without application changes
 
 ## Customization
 
