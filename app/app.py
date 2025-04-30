@@ -1,12 +1,18 @@
 import streamlit as st
 import boto3
 import json
+import os
 
 
-# create bedrock client
-bedrock = boto3.client(service_name='bedrock-runtime')
-# session = boto3.Session(profile_name='defalut')
-# bedrock = session.client(service_name='bedrock-runtime')
+# Create bedrock client using environment variables instead of profile
+# The environment variables will be populated from AWS Secrets Manager
+session = boto3.Session(
+    # These will be populated from environment variables that are set from Secrets Manager
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    region_name=os.environ.get('AWS_REGION', 'us-east-1')
+)
+bedrock = session.client(service_name='bedrock-runtime')
 
 dict_lang = {
     'en': '英語',
@@ -69,50 +75,11 @@ MODEL_MAPPING = {
     "Claude 3 Haiku": "anthropic.claude-3-haiku-20240307-v1:0",
     "Claude 3.5 Haiku": "anthropic.claude-3-5-haiku-20241022-v1:0",
     "Claude 3.5 Sonnet v2": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "Claude 3.7 Sonnet": "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    "Claude 3.7 Sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
 }
-
-def mock_stream_response(prompt):
-    """Generate a mock stream response for testing without AWS credentials"""
-    import time
-    from io import StringIO
-    import random
-    
-    # Create a simple response based on the prompt
-    if "天気" in prompt:
-        response = "申し訳ありませんが、現在の天気情報にはアクセスできません。これはモックモードでの応答です。実際のAPIを使用するには、AWSの認証情報を設定してください。"
-    elif "translate" in prompt.lower() or "翻訳" in prompt:
-        response = "This is a mock translation response. To use the actual translation service, please configure AWS credentials."
-    else:
-        response = f"これはモックモードでの応答です。選択されたモデル: {st.session_state.get('model_name', 'Claude 3 Haiku')}。実際のAPIを使用するには、AWSの認証情報を設定してください。"
-    
-    # Simulate streaming by yielding one character at a time
-    class MockChunk:
-        def __init__(self, text):
-            self.text = text
-            
-    class MockEvent:
-        def __init__(self, text_chunk):
-            self._chunk = {"bytes": json.dumps({
-                "type": "content_block_delta",
-                "delta": {"type": "text_delta", "text": text_chunk}
-            }).encode()}
-            
-        def get(self, key):
-            if key == 'chunk':
-                return self._chunk
-    
-    # Yield the response character by character with small delays
-    for i in range(0, len(response), 3):
-        chunk = response[i:i+3]
-        yield MockEvent(chunk)
-        time.sleep(0.05)  # Small delay to simulate streaming
 
 def open_bedrock_stream(prompt):
     """Call Bedrock API or return mock response if in mock mode or if credentials are missing"""
-    # Check if we're in mock mode
-    if st.session_state.get('mock_mode', False):
-        return mock_stream_response(prompt)
         
     body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31", 
@@ -140,10 +107,6 @@ def open_bedrock_stream(prompt):
     except Exception as e:
         st.error(f"Error calling Bedrock API: {str(e)}")
         st.warning("Switching to mock mode. Configure AWS credentials to use the actual API.")
-        # Automatically switch to mock mode when an error occurs
-        st.session_state.mock_mode = True
-        return mock_stream_response(prompt)
-
 
 def new_translation():
     col1, col2 = st.columns(2)
@@ -218,8 +181,6 @@ def review():
 # Initialize session state variables
 if 'model_name' not in st.session_state:
     st.session_state.model_name = "Claude 3 Haiku"
-if 'mock_mode' not in st.session_state:
-    st.session_state.mock_mode = False
 
 # Model selection in sidebar
 st.sidebar.title("Model Settings")
@@ -230,21 +191,10 @@ selected_model = st.sidebar.selectbox(
     index=model_options.index(st.session_state.model_name)
 )
 
-# Mock mode toggle
-mock_mode = st.sidebar.checkbox(
-    'Mock Mode (No AWS credentials needed)',
-    value=st.session_state.mock_mode,
-    help="Enable this if you don't have AWS credentials configured. Will return mock responses."
-)
-
 # Update session state when settings change
 if selected_model != st.session_state.model_name:
     st.session_state.model_name = selected_model
     st.session_state.messages = []  # Clear chat history when model changes
-
-if mock_mode != st.session_state.mock_mode:
-    st.session_state.mock_mode = mock_mode
-    st.session_state.messages = []  # Clear chat history when mode changes
 
 # Page selection
 st.sidebar.title("Navigation")
