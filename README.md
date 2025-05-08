@@ -8,7 +8,8 @@ The application architecture consists of:
 
 - **Streamlit Application**: A Python web application that provides language translation and review capabilities using AWS Bedrock.
 - **AWS ECS Fargate**: Serverless container orchestration service that runs the Streamlit application.
-- **Application Load Balancer**: Distributes incoming traffic to the Fargate service.
+- **Application Load Balancer (ALB)**: Distributes incoming traffic to the Fargate service.
+- **Amazon CloudFront**: Content delivery network that sits in front of the ALB, providing global distribution, HTTPS, and caching.
 - **VPC with Public and Private Subnets**: Network infrastructure for the application.
 - **AWS Bedrock VPC Endpoint**: Secure connection to AWS Bedrock service.
 - **CloudWatch Logs**: Logging for the application.
@@ -66,27 +67,7 @@ This command will:
 - Create a secret in AWS Secrets Manager to store the AWS credentials
 - Deploy the application
 
-After deployment completes, the CDK will output the URL of your Streamlit application.
-
-
-## AWS Bedrock Configuration
-
-The application uses AWS Bedrock for AI capabilities. The CDK stack sets up the necessary IAM permissions and VPC endpoints for secure access to Bedrock.
-
-The application now uses environment variables for AWS credentials, which are securely stored in AWS Secrets Manager. During deployment, you can provide these credentials as parameters to the CDK command. The credentials are then:
-
-1. Stored securely in AWS Secrets Manager
-2. Made available to the container as environment variables
-3. Used by the application to authenticate with AWS Bedrock
-
-This approach is more secure than hardcoding credentials or using profile files, which aren't available in container environments.
-
-## Auto-scaling Configuration
-
-The application is configured to auto-scale based on CPU utilization:
-- Minimum capacity: 1 task
-- Maximum capacity: 3 tasks
-- Scale up when CPU utilization exceeds 70%
+After deployment completes, the CDK will output the URLs of your Streamlit application, including the CloudFront URL.
 
 
 ### Viewing Logs
@@ -99,6 +80,18 @@ aws logs get-log-events --log-group-name /ecs/streamlit-app --log-stream-name <l
 
 Or navigate to the CloudWatch Logs console and find the `/ecs/streamlit-app` log group.
 
+For CloudFront logs, the distribution is configured to log to an S3 bucket. After deployment, you can find the bucket name in the stack outputs:
+
+```bash
+aws cloudformation describe-stacks --stack-name CdkStack --query "Stacks[0].Outputs[?OutputKey=='CloudFrontLogsBucket'].OutputValue" --output text
+```
+
+Then you can view the logs using the AWS Console or CLI:
+
+```bash
+aws s3 ls s3://BUCKET_NAME/cloudfront-logs/ --recursive
+```
+
 ## Cleaning Up
 
 To avoid incurring charges, delete the resources when no longer needed:
@@ -107,3 +100,9 @@ To avoid incurring charges, delete the resources when no longer needed:
 cd cdk
 cdk destroy
 ```
+
+
+## Reference Links 
+* https://github.com/aws-ia/terraform-aws-serverless-streamlit-app/tree/main
+
+* https://aws.amazon.com/jp/cdp/streamlit/
